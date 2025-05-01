@@ -1,7 +1,6 @@
 package example.cashcard;
 
 import java.security.Principal;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,12 +24,16 @@ class CashCardController {
   }
 
   @GetMapping("/{requestId}")
-  private ResponseEntity<CashCard> findById(@PathVariable Long requestId, Principal principal) {
-    Optional<CashCard> cashCardOptional = Optional.ofNullable(
-        cashCardRepository.findByIdAndOwner(requestId,
-            principal.getName()));
-    return cashCardOptional.map(ResponseEntity::ok)
-        .orElseGet(() -> ResponseEntity.notFound().build());
+  public ResponseEntity<CashCard> getCashCardById(@PathVariable Long requestId,
+      Principal principal) {
+    CashCard cashCard = findCashCard(requestId, principal.getName());
+    return Optional.ofNullable(cashCard)
+        .map(ResponseEntity::ok)
+        .orElse(ResponseEntity.notFound().build());
+  }
+
+  private CashCard findCashCard(Long id, String ownerName) {
+    return cashCardRepository.findByIdAndOwner(id, ownerName);
   }
 
   @PostMapping
@@ -55,6 +58,32 @@ class CashCardController {
             pageable.getSortOr(Sort.by(Sort.Direction.ASC, "amount"))
         ));
     return ResponseEntity.ok(page.getContent());
+  }
+
+  @PutMapping("/{requestedId}")
+  private ResponseEntity<Void> putCashCard(@PathVariable Long requestedId,
+      @RequestBody CashCard cashCardUpdate,
+      Principal principal) {
+
+    CashCard cashCard = findCashCard(requestedId, principal.getName());
+    if (cashCard != null) {
+      CashCard updatedCashCard = new CashCard(cashCard.id(), cashCardUpdate.amount(),
+          principal.getName());
+      cashCardRepository.save(updatedCashCard);
+      return ResponseEntity.noContent().build();
+    }
+
+    return ResponseEntity.notFound().build();
+  }
+
+  @DeleteMapping("/{id}")
+  private ResponseEntity<Void> deleteCashCard(@PathVariable Long id, Principal principal) {
+    if (cashCardRepository.existsByIdAndOwner(id, principal.getName())) {
+      cashCardRepository.deleteById(id);
+      return ResponseEntity.noContent().build();
+    }
+    
+    return ResponseEntity.notFound().build();
   }
 
 }
